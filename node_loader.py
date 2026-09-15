@@ -4,6 +4,7 @@ import json
 import asyncio
 import ctypes
 from ctypes import wintypes
+import hashlib
 import numpy as np
 from PIL import Image, ImageOps
 import torch
@@ -291,6 +292,75 @@ class Crazy3DS_LoadImage:
     OUTPUT_IS_LIST = (True, True)
     FUNCTION = "execute"
     CATEGORY = "Crazy3DS/IO"
+
+    @classmethod
+    def IS_CHANGED(cls, target_path, folder_direct, mode, multi_flow, selected_index, selected_files, **kwargs):
+        """
+        像素级纯净缓存指纹计算：
+        彻底忽略 target_path、filename 等辅助控件的变动，不把前端随机 ID 纳入计算。
+        仅当当前实际输出图像的物理文件路径、修改时间（mtime）、裁剪或旋转镜像改变时才更新。
+        在单图模式下切换历史路径或点击无关参数，只要输出的图片没变，下游反推与抽卡 100% 命中缓存！
+        """
+        if folder_direct:
+            p = os.path.normpath(target_path.strip()) if target_path else ""
+            if p and not os.path.isabs(p):
+                p = os.path.join(folder_paths.get_output_directory(), p)
+            if not p or not os.path.isdir(p):
+                return "missing_dir"
+            try:
+                stats = []
+                for f in sorted(os.listdir(p)):
+                    if os.path.splitext(f)[1].lower() in VALID_EXTENSIONS:
+                        fp = os.path.join(p, f)
+                        stats.append(f"{f}_{os.path.getmtime(fp)}")
+                return hashlib.md5(";".join(stats).encode("utf-8")).hexdigest()
+            except Exception:
+                return "error_dir"
+
+        try:
+            items = json.loads(selected_files) if (selected_files and selected_files.strip()) else []
+        except Exception:
+            items = []
+
+        if not items:
+            return "empty_pool"
+
+        is_multi = str(mode).startswith("Multi")
+        is_batch = str(multi_flow).startswith("Batch")
+
+        # 准确提取当前实际输出的条目列表，忽略画廊中未被选中的多余素材
+        if is_multi:
+            target_items = items
+        else:
+            idx = min(max(0, int(selected_index)), len(items) - 1)
+            target_items = [items[idx]]
+
+        tokens = [str(is_multi), str(is_batch)]
+        for it in target_items:
+            if isinstance(it, dict):
+                # 剥离前端生成的时间戳随机 id，只锁定实际物理文件路径
+                ed_path = it.get("edited_path")
+                ed_name = it.get("edited_name")
+                if ed_path and ed_name:
+                    full_p = os.path.normpath(os.path.join(ed_path, ed_name))
+                else:
+                    full_p = os.path.normpath(os.path.join(it.get("path", ""), it.get("name", "")))
+                
+                crop_data = str(it.get("crop"))
+                rot = str(it.get("rot", 0))
+                flip_h = str(it.get("flip_h", False))
+                flip_v = str(it.get("flip_v", False))
+            else:
+                p = os.path.normpath(target_path.strip()) if target_path else ""
+                if not os.path.isabs(p):
+                    p = os.path.join(folder_paths.get_output_directory(), p)
+                full_p = os.path.normpath(os.path.join(p, str(it)))
+                crop_data, rot, flip_h, flip_v = "None", "0", "False", "False"
+
+            mtime = os.path.getmtime(full_p) if os.path.exists(full_p) else 0
+            tokens.append(f"{full_p}_{mtime}_{crop_data}_{rot}_{flip_h}_{flip_v}")
+
+        return hashlib.md5(";".join(tokens).encode("utf-8")).hexdigest()
 
     def execute(self, target_path, folder_direct, mode, multi_flow, selected_index, selected_files, queue_index, filename, unique_id=None):
         if folder_direct:

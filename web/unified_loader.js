@@ -161,7 +161,6 @@ function syncNodeGalleryColor(node) {
 function updateDomDimensions(node) {
     if (!node.c3dsDomWidget || !node.c3dsDomWidget.element) return;
     const widgetY = (node.c3dsDomWidget && typeof node.c3dsDomWidget.y === "number" && node.c3dsDomWidget.y > 10) ? node.c3dsDomWidget.y : 32;
-    // 边距精确收紧至 6px：左右对称，提高横向利用率
     const w = Math.max(200, (node.size ? node.size[0] : 360) - 12);
     const h = Math.max(80, (node.size ? node.size[1] : 330) - widgetY - 6);
     const el = node.c3dsDomWidget.element;
@@ -220,12 +219,21 @@ function setupLoaderPanel(node) {
     };
 
     const syncWidgetValues = () => {
+        const pool = node.properties.pool || [];
+        const curItem = getActiveItem();
+
         const list = node.properties.load_paths;
         const pIdx = Math.max(0, Math.min(node.properties.selected_idx, list.length - 1));
         const curPath = list[pIdx] || "input";
 
         const targetW = getWidget("target_path");
-        if (targetW) targetW.value = curPath;
+        if (targetW) {
+            if (node.properties.folder_direct) {
+                targetW.value = curPath;
+            } else {
+                targetW.value = curItem ? (curItem.edited_path || curItem.path || curPath) : curPath;
+            }
+        }
 
         const fdW = getWidget("folder_direct");
         if (fdW) fdW.value = !!node.properties.folder_direct;
@@ -235,9 +243,6 @@ function setupLoaderPanel(node) {
 
         const flowW = getWidget("multi_flow");
         if (flowW) flowW.value = (node.properties.c3ds_flow === "Batch") ? "Batch \u6279\u91cf\u5408\u5e76" : "List \u5217\u8868\u6a21\u5f0f";
-
-        const pool = node.properties.pool || [];
-        const curItem = getActiveItem();
 
         node.properties.c3ds_pool = pool;
         node.properties.c3ds_selected_idx = getWidget("selected_index")?.value || 0;
@@ -322,7 +327,6 @@ function setupLoaderPanel(node) {
     const dropdownMenu = barTarget.querySelector(".c3ds-dropdown");
     const btnFolderDirect = barTarget.querySelector("#btnFolderDirect");
 
-    // 遮罩层叠与优先级控制：防窥模式完全独占，避免二次重叠
     const updateOverlayUI = () => {
         const isPrivacy = !!node.properties.privacy_mode;
         const isDirect = !!node.properties.folder_direct;
@@ -673,7 +677,6 @@ function setupLoaderPanel(node) {
     const btnRefreshGallery = galleryTopBar.querySelector("#btnRefreshGallery");
     const btnSelectAll = galleryTopBar.querySelector("#btnSelectAll");
     const btnDeselectAll = galleryTopBar.querySelector("#btnDeselectAll");
-
     const btnFlowScrollNext = galleryTopBar.querySelector("#btnFlowScrollNext");
 
     const updateFlowScrollArrow = () => {
@@ -991,7 +994,6 @@ function setupLoaderPanel(node) {
         switchViewMode(false);
     };
 
-    // 工具栏对称排布，内边距规范
     const barTools = document.createElement("div");
     barTools.style.cssText = "width:100%;height:26px;min-height:26px;background:rgba(18, 18, 18, 0.95);border-top:1px solid #282828;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-sizing:border-box;flex-shrink:0;z-index:12;";
     barTools.innerHTML = `
@@ -1158,9 +1160,6 @@ function setupLoaderPanel(node) {
     viewMain.appendChild(galleryViewWrap);
     viewMain.appendChild(focusContainer);
 
-    // ========================================================
-    // 遮罩直接挂载至视口容器 viewMain，实现 100% 相对约束
-    // ========================================================
     const directOverlay = document.createElement("div");
     directOverlay.className = "c3ds-direct-overlay";
     directOverlay.innerHTML = `
@@ -1237,7 +1236,6 @@ function setupLoaderPanel(node) {
 
         if (!it) return;
 
-        // 如果当前素材已被判定丢失，直接阻断网络请求并提示，杜绝死循环
         if (it._missing) {
             hudSpecs.innerText = "文件已丢失";
             return;
@@ -1266,7 +1264,6 @@ function setupLoaderPanel(node) {
                             hudSpecs.innerText = `· ${d.width}×${d.height} · ${d.size} · ${d.format}`;
                         }
                     } else {
-                        // 记录失败标记，永久阻断后续相同文件的重复死循环请求
                         IMAGE_META_CACHE[cacheKey] = { failed: true };
                         it._missing = true;
                         updateCardSelectionState();
@@ -1277,7 +1274,6 @@ function setupLoaderPanel(node) {
                     }
                 })
                 .catch(() => {
-                    // 异常同样记录失败缓存，杜绝重复发起死循环
                     IMAGE_META_CACHE[cacheKey] = { failed: true };
                     it._missing = true;
                     updateCardSelectionState();
@@ -1795,9 +1791,6 @@ function setupLoaderPanel(node) {
                     cardImg.addEventListener("error", () => {
                         it._missing = true;
                         node.properties.batch_checked_ids = (node.properties.batch_checked_ids || []).filter(id => id !== it.id);
-                        const curIdxW = getWidget("selected_index")?.value || 0;
-                        if (i === curIdxW && node.properties.c3ds_mode !== "Multi") {
-                        }
                         updateCardSelectionState();
                         syncWidgetValues();
                         updateHudText();
