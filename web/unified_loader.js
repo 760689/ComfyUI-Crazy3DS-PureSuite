@@ -76,7 +76,7 @@ if (!document.getElementById(STYLE_ID)) {
 
         .c3ds-handle { position: absolute; width: 7px; height: 7px; background: #fff; border: 1px solid #48bb78; box-sizing: border-box; }
         
-        /* 底部 HUD：6px 统一字号，向上微提留出底部舒适留白，中线对齐 */
+        /* 底部 HUD */
         .c3ds-hud { width: 100%; height: 18px; min-height: 18px; background: transparent; border-top: none; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 4px; margin-top: -2px; margin-bottom: 6px; box-sizing: border-box; flex-shrink: 0; font-size: 6px; line-height: 1; z-index: 10; }
         .c3ds-hud-info { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; flex: 1; min-width: 0; overflow: hidden; }
         .c3ds-hud-title { color: #888; font-size: 9px; line-height: 1; font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
@@ -92,21 +92,26 @@ if (!document.getElementById(STYLE_ID)) {
         .c3ds-float-cancel { background: rgba(75, 85, 99, 0.38); color: #f3f4f6; border: 1px solid rgba(156, 163, 175, 0.45); }
         .c3ds-float-cancel:hover { background: rgba(75, 85, 99, 0.85); color: #fff; }
 
-        .c3ds-direct-toggle { font-size: 10px; padding: 2px 6px; border-radius: 2px; cursor: pointer; border: 1px solid #444; background: #222; color: #888; font-weight: 600; line-height: 1.25; transition: all 0.15s ease; flex-shrink: 0; }
+        .c3ds-direct-toggle { font-size: 10px; padding: 2px 5px; border-radius: 2px; cursor: pointer; border: 1px solid #444; background: #222; color: #888; font-weight: 600; line-height: 1.25; transition: all 0.15s ease; flex-shrink: 0; }
         .c3ds-direct-toggle:hover { border-color: #666; color: #ccc; }
         .c3ds-direct-toggle.active { background: #7b2c2c; border-color: #e53e3e; color: #ffffff; box-shadow: 0 0 6px rgba(229, 62, 62, 0.4); }
 
-        /* 视口自适应遮罩：绝对居中于 viewMain 内部，永不溢出底部，无任何二次遮挡 */
         .c3ds-direct-overlay { position: absolute; inset: 0; background: rgba(14, 14, 14, 0.95); backdrop-filter: blur(8px); z-index: 9000; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 7px; box-sizing: border-box; text-align: center; pointer-events: auto; }
         .c3ds-privacy-overlay { position: absolute; inset: 0; background: #131313; border: 1px solid #2c2c2c; border-radius: 4px; box-sizing: border-box; z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; }
 
-        /* 图标视图切换按钮 */
-        .c3ds-view-toggle-btn { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 2px; background: transparent; border: none; transition: all 0.15s ease; }
+        .c3ds-view-toggle-btn { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 2px; background: transparent; border: none; transition: all 0.15s ease; }
         .c3ds-view-toggle-btn:hover { background: transparent; }
         .c3ds-view-toggle-btn.active { background: transparent; }
-        .c3ds-view-toggle-btn svg { width: 13px; height: 13px; fill: #555; transition: fill 0.15s ease; }
+        .c3ds-view-toggle-btn svg { width: 12px; height: 12px; fill: #555; transition: fill 0.15s ease; }
         .c3ds-view-toggle-btn:hover svg { fill: #aaa; }
         .c3ds-view-toggle-btn.active svg { fill: #e58b8b; }
+
+        /* 顶部右侧流转模式胶囊 */
+        .c3ds-top-flow-btn { font-size: 9.5px; padding: 1.5px 5px; cursor: pointer; border-radius: 2px; white-space: nowrap; flex-shrink: 0; transition: all 0.15s ease; user-select: none; line-height: 1.25; background: #7b3737; color: #fff; border: 1px solid #944444; }
+        
+        /* 缩减至 2/3 大小的 10px×10px 防误触删除按键 */
+        .c3ds-single-del { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; background: rgba(0,0,0,0.8); color: #999; display: flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; border-radius: 2px; z-index: 3; cursor: pointer; }
+        .c3ds-single-del:hover { background: #b91c1c; color: #fff; }
     `;
     document.head.appendChild(styleEl);
 }
@@ -161,21 +166,23 @@ function syncNodeGalleryColor(node) {
 function updateDomDimensions(node) {
     if (!node.c3dsDomWidget || !node.c3dsDomWidget.element) return;
     const widgetY = (node.c3dsDomWidget && typeof node.c3dsDomWidget.y === "number" && node.c3dsDomWidget.y > 10) ? node.c3dsDomWidget.y : 32;
-    const w = Math.max(200, (node.size ? node.size[0] : 360) - 12);
-    const h = Math.max(80, (node.size ? node.size[1] : 330) - widgetY - 6);
+    const nodeW = node.size ? node.size[0] : 360;
+    const nodeH = node.size ? node.size[1] : 330;
+
+    const w = Math.max(200, nodeW - 10);
+    const h = Math.max(80, nodeH - widgetY - 6);
+
     const el = node.c3dsDomWidget.element;
-    if (el.style.width !== w + "px") el.style.width = w + "px";
-    if (el.style.height !== h + "px") el.style.height = h + "px";
-    if (el.style.maxHeight !== h + "px") el.style.maxHeight = h + "px";
-    if (el.style.marginLeft !== "-4px") el.style.marginLeft = "-4px";
+    el.style.width = w + "px";
+    el.style.height = h + "px";
+    el.style.maxHeight = h + "px";
+    el.style.marginLeft = "-5px";
+
     if (el.parentElement) {
         el.parentElement.style.pointerEvents = "none";
         el.parentElement.style.overflow = "hidden";
         el.parentElement.style.maxHeight = h + "px";
         el.parentElement.style.height = h + "px";
-    }
-    if (node._c3ds_update_flow_scroll) {
-        node._c3ds_update_flow_scroll();
     }
     if (node.c3dsUpdateOverlays) {
         node.c3dsUpdateOverlays();
@@ -197,12 +204,14 @@ function setupLoaderPanel(node) {
     const loadPaths = getGlobalLoadPaths();
     node.properties = node.properties || {};
     node.properties.load_paths = loadPaths;
-    node.properties.selected_idx = 0;
+    node.properties.selected_idx = (typeof node.properties.c3ds_path_idx === "number") ? node.properties.c3ds_path_idx : 0;
     node.properties.folder_direct = !!node.properties.folder_direct;
     node.properties.c3ds_mode = node.properties.c3ds_mode || "Single";
     node.properties.c3ds_flow = node.properties.c3ds_flow || "List";
+    node.properties.order_assign_mode = node.properties.order_assign_mode || "fixed";
     node.properties.pool = node.properties.c3ds_pool || [];
     node.properties.batch_checked_ids = [];
+    node.properties.slot_map = node.properties.slot_map || {};
     node.properties.batch_remove_ids = [];
     node.properties.privacy_mode = !!node.properties.c3ds_privacy_mode;
     node.properties.gallery_view_mode = node.properties.gallery_view_mode || "grid";
@@ -216,6 +225,26 @@ function setupLoaderPanel(node) {
         const pool = node.properties.pool || [];
         const curIdx = Math.max(0, Math.min(getWidget("selected_index")?.value || 0, pool.length - 1));
         return pool[curIdx] || null;
+    };
+
+    const getEffectiveOrderMap = () => {
+        const isFixed = (node.properties.order_assign_mode !== "fill");
+        const checkedList = node.properties.batch_checked_ids || [];
+        const map = new Map();
+
+        if (isFixed) {
+            const slotMap = node.properties.slot_map || {};
+            checkedList.forEach(id => {
+                if (typeof slotMap[id] === "number") {
+                    map.set(id, slotMap[id]);
+                }
+            });
+        } else {
+            checkedList.forEach((id, idx) => {
+                map.set(id, idx + 1);
+            });
+        }
+        return map;
     };
 
     const syncWidgetValues = () => {
@@ -246,13 +275,17 @@ function setupLoaderPanel(node) {
 
         node.properties.c3ds_pool = pool;
         node.properties.c3ds_selected_idx = getWidget("selected_index")?.value || 0;
+        node.properties.c3ds_path_idx = node.properties.selected_idx || 0;
         node.properties.c3ds_privacy_mode = !!node.properties.privacy_mode;
+        node.properties.c3ds_batch_checked_ids = [...(node.properties.batch_checked_ids || [])];
 
         const selFilesW = getWidget("selected_files");
         if (selFilesW) {
             if (node.properties.c3ds_mode === "Multi") {
-                const checkedSet = new Set(node.properties.batch_checked_ids || []);
-                const batchItems = pool.filter(it => checkedSet.has(it.id));
+                const orderMap = getEffectiveOrderMap();
+                const itemMap = new Map(pool.map(it => [it.id, it]));
+                const sortedPairs = Array.from(orderMap.entries()).sort((a, b) => a[1] - b[1]);
+                const batchItems = sortedPairs.map(([id]) => itemMap.get(id)).filter(Boolean);
                 selFilesW.value = JSON.stringify(batchItems.length ? batchItems : (curItem ? [curItem] : []));
             } else {
                 selFilesW.value = JSON.stringify(curItem ? [curItem] : []);
@@ -373,6 +406,7 @@ function setupLoaderPanel(node) {
                 fresh = fresh.slice(0, 19);
                 node.properties.load_paths = fresh;
                 node.properties.selected_idx = 0;
+                node.properties.c3ds_path_idx = 0;
                 setGlobalLoadPaths(fresh, 0);
 
                 const pool = node.properties.pool || [];
@@ -418,6 +452,7 @@ function setupLoaderPanel(node) {
                 fresh = fresh.slice(0, 19);
                 node.properties.load_paths = fresh;
                 node.properties.selected_idx = 0;
+                node.properties.c3ds_path_idx = 0;
                 setGlobalLoadPaths(fresh, 0);
 
                 syncWidgetValues();
@@ -481,9 +516,11 @@ function setupLoaderPanel(node) {
                     const newIdx = Math.max(0, idx - (i <= idx ? 1 : 0));
                     node.properties.load_paths = fresh;
                     node.properties.selected_idx = newIdx;
+                    node.properties.c3ds_path_idx = newIdx;
                     setGlobalLoadPaths(fresh, newIdx);
                     syncWidgetValues();
                     renderDropdown();
+                    node.setDirtyCanvas(true, true);
                 };
             }
 
@@ -492,16 +529,18 @@ function setupLoaderPanel(node) {
                 e.stopPropagation();
                 dropdownMenu.style.display = "none";
                 node.properties.selected_idx = i;
+                node.properties.c3ds_path_idx = i;
                 setGlobalLoadPaths(list, i);
                 syncWidgetValues();
                 renderDropdown();
+                node.setDirtyCanvas(true, true);
             };
             dropdownMenu.appendChild(item);
         });
     };
 
     // ========================================================
-    // 第 2 行：打开当前素材路径文件夹 (2/3) + 转到去路 (1/3)
+    // 第 2 行：打开素材路径 (2/3) + 转到去路 (1/3)
     // ========================================================
     const barOpen = document.createElement("div");
     barOpen.className = "c3ds-bar";
@@ -578,6 +617,7 @@ function setupLoaderPanel(node) {
             fresh = fresh.slice(0, 19);
             node.properties.load_paths = fresh;
             node.properties.selected_idx = 0;
+            node.properties.c3ds_path_idx = 0;
             setGlobalLoadPaths(fresh, 0);
 
             syncWidgetValues();
@@ -627,10 +667,12 @@ function setupLoaderPanel(node) {
     const updateModeUI = () => {
         const isMulti = (node.properties.c3ds_mode === "Multi");
         tabBtns.forEach(b => b.classList.toggle("active", b.dataset.mode === node.properties.c3ds_mode));
-        multiFlowWrap.style.display = isMulti ? "flex" : "none";
+        btnFlowWrap.style.display = isMulti ? "flex" : "none";
         if (btnSelectAll) btnSelectAll.style.display = isMulti ? "inline-block" : "none";
         if (btnDeselectAll) btnDeselectAll.style.display = isMulti ? "inline-block" : "none";
-        updateFlowBtns();
+        if (btnOrderMode) btnOrderMode.style.display = isMulti ? "inline-block" : "none";
+        updateFlowBtnUI();
+        updateOrderModeBtnUI();
         updateHudText();
     };
 
@@ -644,10 +686,10 @@ function setupLoaderPanel(node) {
     galleryViewWrap.style.cssText = "width:100%;height:100%;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:transparent;";
 
     const galleryTopBar = document.createElement("div");
-    galleryTopBar.style.cssText = "width:100%;height:24px;background:#181818;border-bottom:1px solid #262626;display:flex;align-items:center;justify-content:space-between;padding:0 6px;box-sizing:border-box;flex-shrink:0;user-select:none;";
+    galleryTopBar.style.cssText = "width:100%;height:24px;background:#181818;border-bottom:1px solid #262626;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;flex-shrink:0;user-select:none;";
     galleryTopBar.innerHTML = `
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-            <div id="viewModeToggleGroup" style="display:flex;align-items:center;gap:3px;background:transparent;border:none;padding:0;" title="切换画廊显示模式">
+        <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">
+            <div id="viewModeToggleGroup" style="display:flex;align-items:center;gap:2px;background:transparent;border:none;padding:0;flex-shrink:0;" title="切换画廊显示模式">
                 <div id="btnModeGrid" class="c3ds-view-toggle-btn active" title="缩略图网格视图">
                     <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
                 </div>
@@ -658,65 +700,73 @@ function setupLoaderPanel(node) {
                     <svg viewBox="0 0 16 16"><path d="M13.65 2.35A7.958 7.958 0 0 0 8 0a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L10 6h6V0l-2.35 2.35z"/></svg>
                 </div>
             </div>
-            <div style="display:flex;align-items:center;gap:4px;margin-left:2px;">
-                <span id="btnSelectAll" style="display:none;font-size:9.5px;color:#777;cursor:pointer;padding:1px 3px;border-radius:2px;background:transparent;border:none;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease;" title="全选当前画廊全部图片">全选</span>
-                <span id="btnDeselectAll" style="display:none;font-size:9.5px;color:#777;cursor:pointer;padding:1px 3px;border-radius:2px;background:transparent;border:none;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease;" title="取消当前全部勾选">脱选</span>
-                <div id="btnClearGallery" style="font-size:9.5px;color:#777;cursor:pointer;padding:1px 4px;border-radius:2px;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease;" title="清空当前画廊内的全部图片">清空</div>
+            <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:10px;">
+                <span id="btnSelectAll" style="display:none;font-size:9.5px;color:#777;cursor:pointer;padding:1px 2px;border-radius:2px;background:transparent;border:none;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease;" title="全选当前画廊全部图片">全选</span>
+                <span id="btnDeselectAll" style="display:none;font-size:9.5px;color:#777;cursor:pointer;padding:1px 2px;border-radius:2px;background:transparent;border:none;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease;" title="取消当前全部勾选">脱选</span>
+                <span id="btnOrderMode" style="display:none;font-size:9.5px;cursor:pointer;padding:1px 2px;border-radius:2px;background:transparent;border:none;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease;">固定序号</span>
+                <div id="btnClearGallery" style="font-size:9.5px;color:#777;cursor:pointer;padding:1px 2px;border-radius:2px;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease;" title="清空当前画廊内的全部图片">清空</div>
             </div>
         </div>
-        <div id="multiFlowWrap" style="display:none;align-items:center;gap:4px;flex-shrink:0;margin-left:auto;">
-            <span class="flow-pill" data-flow="List" style="font-size:10px;padding:1px 6px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0;color:#e58b8b;background:#222;" title="按列表顺序，一张一张分别输出到下游节点执行">List 列表</span>
-            <span class="flow-pill" data-flow="Batch" style="font-size:10px;padding:1px 6px;cursor:border-radius:2px;white-space:nowrap;flex-shrink:0;color:#e58b8b;background:#222;" title="将所有勾选图片合并为单批次张量 (Batch Tensor) 一次性输出">批量合并</span>
+        <div id="btnFlowWrap" style="display:none;align-items:center;flex-shrink:0;margin-left:auto;">
+            <button id="btnToggleFlow" type="button" class="c3ds-top-flow-btn">List 列表</button>
         </div>
     `;
 
-    const multiFlowWrap = galleryTopBar.querySelector("#multiFlowWrap");
-    const flowPills = multiFlowWrap.querySelectorAll(".flow-pill");
+    const btnFlowWrap = galleryTopBar.querySelector("#btnFlowWrap");
+    const btnToggleFlow = galleryTopBar.querySelector("#btnToggleFlow");
+    const btnOrderMode = galleryTopBar.querySelector("#btnOrderMode");
     const btnModeGrid = galleryTopBar.querySelector("#btnModeGrid");
     const btnModeList = galleryTopBar.querySelector("#btnModeList");
     const btnRefreshGallery = galleryTopBar.querySelector("#btnRefreshGallery");
     const btnSelectAll = galleryTopBar.querySelector("#btnSelectAll");
     const btnDeselectAll = galleryTopBar.querySelector("#btnDeselectAll");
-    const btnFlowScrollNext = galleryTopBar.querySelector("#btnFlowScrollNext");
 
-    const updateFlowScrollArrow = () => {
-        if (!multiFlowWrap || multiFlowWrap.style.display === "none") {
-            if (btnFlowScrollNext) btnFlowScrollNext.style.display = "none";
-            return;
-        }
-        const hasOverflow = multiFlowWrap.scrollWidth > (multiFlowWrap.clientWidth + 2);
-        if (btnFlowScrollNext) {
-            btnFlowScrollNext.style.display = hasOverflow ? "inline-flex" : "none";
-            if (hasOverflow) {
-                const isNearEnd = (multiFlowWrap.scrollLeft + multiFlowWrap.clientWidth) >= (multiFlowWrap.scrollWidth - 6);
-                btnFlowScrollNext.innerText = isNearEnd ? "‹" : "›";
-                btnFlowScrollNext.title = isNearEnd ? "向左回滚" : "向右滑动查看更多按钮";
-            }
-        }
+    const updateFlowBtnUI = () => {
+        const isBatch = (node.properties.c3ds_flow === "Batch");
+        btnToggleFlow.innerText = isBatch ? "批量合并" : "List 列表";
+        btnToggleFlow.title = isBatch
+            ? "【流转模式: 批量合并】点击切换为 List 列表模式\n当前：将所有勾选图片合并为单批次张量 (Batch Tensor) 一次性输出"
+            : "【流转模式: List 列表】点击切换为批量合并模式\n当前：按序号一张一张分别输出到下游节点执行";
     };
-    node._c3ds_update_flow_scroll = updateFlowScrollArrow;
 
-    if (multiFlowWrap) {
-        multiFlowWrap.addEventListener("scroll", () => {
-            updateFlowScrollArrow();
-        }, { passive: true });
-    }
+    btnToggleFlow.onclick = (e) => {
+        e.stopPropagation();
+        node.properties.c3ds_flow = (node.properties.c3ds_flow === "Batch") ? "List" : "Batch";
+        updateFlowBtnUI();
+        syncWidgetValues();
+        updateHudText();
+        node.setDirtyCanvas(true, true);
+    };
 
-    if (btnFlowScrollNext) {
-        btnFlowScrollNext.onmouseenter = () => { btnFlowScrollNext.style.color = "#fca5a5"; };
-        btnFlowScrollNext.onmouseleave = () => { btnFlowScrollNext.style.color = "#777"; };
-        btnFlowScrollNext.onclick = (e) => {
-            e.stopPropagation();
-            if (!multiFlowWrap) return;
-            const isNearEnd = (multiFlowWrap.scrollLeft + multiFlowWrap.clientWidth) >= (multiFlowWrap.scrollWidth - 6);
-            if (isNearEnd) {
-                multiFlowWrap.scrollTo({ left: 0, behavior: "smooth" });
-            } else {
-                multiFlowWrap.scrollBy({ left: 75, behavior: "smooth" });
-            }
-            setTimeout(updateFlowScrollArrow, 250);
-        };
-    }
+    const updateOrderModeBtnUI = () => {
+        const isFixed = (node.properties.order_assign_mode !== "fill");
+        btnOrderMode.innerText = isFixed ? "固定序号" : "补位序号";
+        btnOrderMode.style.color = isFixed ? "#e58b8b" : "#86efac";
+        btnOrderMode.title = isFixed
+            ? "【当前：固定序号】点击切换为 补位序号\n特性：退选某图后该位次空出，其余编号不动；新点选图自动填补最小空缺，完美保护下游 1~9 端口固定连线！"
+            : "【当前：补位序号】点击切换为 固定序号\n特性：退选某图后后续编号自动向前平移补齐（自愈），适合纯列表序列排队任务。";
+    };
+
+    btnOrderMode.onmouseenter = () => { btnOrderMode.style.background = "#241f1f"; };
+    btnOrderMode.onmouseleave = () => { btnOrderMode.style.background = "transparent"; };
+
+    btnOrderMode.onclick = (e) => {
+        e.stopPropagation();
+        const cur = node.properties.order_assign_mode || "fixed";
+        node.properties.order_assign_mode = (cur === "fixed") ? "fill" : "fixed";
+
+        if (node.properties.order_assign_mode === "fixed") {
+            const list = node.properties.batch_checked_ids || [];
+            node.properties.slot_map = {};
+            list.forEach((id, idx) => {
+                node.properties.slot_map[id] = idx + 1;
+            });
+        }
+        updateOrderModeBtnUI();
+        syncWidgetValues();
+        updateCardSelectionState();
+        node.setDirtyCanvas(true, true);
+    };
 
     if (btnRefreshGallery) {
         btnRefreshGallery.onclick = (e) => {
@@ -757,6 +807,11 @@ function setupLoaderPanel(node) {
                 node.properties.batch_checked_ids = [...validIds];
             }
 
+            node.properties.slot_map = {};
+            node.properties.batch_checked_ids.forEach((id, idx) => {
+                node.properties.slot_map[id] = idx + 1;
+            });
+
             syncWidgetValues();
             updateCardSelectionState();
             updateHudText();
@@ -778,6 +833,7 @@ function setupLoaderPanel(node) {
             } else {
                 node._c3ds_before_deselect_all = [...currentChecked];
                 node.properties.batch_checked_ids = [];
+                node.properties.slot_map = {};
             }
 
             syncWidgetValues();
@@ -811,26 +867,6 @@ function setupLoaderPanel(node) {
         renderGallery();
     };
 
-    const updateFlowBtns = () => {
-        const isBatch = (node.properties.c3ds_flow === "Batch");
-        flowPills.forEach(p => {
-            const act = (p.dataset.flow === "Batch") === isBatch;
-            p.style.background = act ? "#7b3737" : "#222";
-            p.style.color = act ? "#fff" : "#e58b8b";
-        });
-    };
-
-    flowPills.forEach(p => {
-        p.onclick = (e) => {
-            if (e) e.stopPropagation();
-            node.properties.c3ds_flow = p.dataset.flow;
-            updateFlowBtns();
-            syncWidgetValues();
-            updateHudText();
-            node.setDirtyCanvas(true, true);
-        };
-    });
-
     const confirmClearModal = document.createElement("div");
     confirmClearModal.style.cssText = "position:absolute;inset:0;background:rgba(18,18,18,0.95);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;box-sizing:border-box;pointer-events:auto;";
     confirmClearModal.innerHTML = `
@@ -863,6 +899,7 @@ function setupLoaderPanel(node) {
         confirmClearModal.style.display = "none";
         node.properties.pool = [];
         node.properties.batch_checked_ids = [];
+        node.properties.slot_map = {};
         node.properties.batch_remove_ids = [];
         node.isBatchRemoveMode = false;
         const selW = getWidget("selected_index");
@@ -905,6 +942,9 @@ function setupLoaderPanel(node) {
         const rem = new Set(node.properties.batch_remove_ids || []);
         node.properties.pool = (node.properties.pool || []).filter(it => !rem.has(it.id));
         node.properties.batch_checked_ids = (node.properties.batch_checked_ids || []).filter(id => !rem.has(id));
+        if (node.properties.slot_map) {
+            rem.forEach(id => delete node.properties.slot_map[id]);
+        }
         node.properties.batch_remove_ids = [];
         node.isBatchRemoveMode = false;
         batchRemoveBar.style.display = "none";
@@ -943,7 +983,7 @@ function setupLoaderPanel(node) {
     const btnFloatCancel = floatBtnGroup.querySelector("#btnFloatCancel");
 
     const innerStage = document.createElement("div");
-    innerStage.style.cssText = "position:relative;display:flex;align-items:center;justify-content:center;box-sizing:border-box;user-select:none;";
+    innerStage.style.cssText = "position:relative;display:flex;align-items:center;justify-content:box-sizing:border-box;user-select:none;";
 
     const stageCanvas = document.createElement("canvas");
     stageCanvas.style.cssText = "display:block;width:100%;height:100%;user-select:none;cursor:pointer;";
@@ -1549,7 +1589,7 @@ function setupLoaderPanel(node) {
         const curIdx = getWidget("selected_index")?.value || 0;
         const isMulti = (node.properties.c3ds_mode === "Multi");
         const isRemoving = !!node.isBatchRemoveMode;
-        const checkedSet = new Set(node.properties.batch_checked_ids || []);
+        const orderMap = getEffectiveOrderMap();
         const removeSet = new Set(node.properties.batch_remove_ids || []);
         const isList = (node.properties.gallery_view_mode === "list");
 
@@ -1560,7 +1600,8 @@ function setupLoaderPanel(node) {
                 if (!it) return;
 
                 const isCur = idx === curIdx;
-                const isChecked = checkedSet.has(it.id);
+                const orderNum = orderMap.get(it.id);
+                const isChecked = orderNum !== undefined;
                 const isMarkedDel = removeSet.has(it.id);
 
                 const isMissing = !!it._missing;
@@ -1579,7 +1620,7 @@ function setupLoaderPanel(node) {
                     } else if (isMulti && !isMissing) {
                         badge.style.display = "flex";
                         badge.style.color = isChecked ? "#22c55e" : "#666";
-                        badge.innerText = isChecked ? "✔" : "○";
+                        badge.innerText = isChecked ? (orderNum > 99 ? ".." : String(orderNum)) : "○";
                     } else {
                         badge.style.display = "none";
                     }
@@ -1592,7 +1633,8 @@ function setupLoaderPanel(node) {
                 if (!it) return;
 
                 const isCur = idx === curIdx;
-                const isChecked = checkedSet.has(it.id);
+                const orderNum = orderMap.get(it.id);
+                const isChecked = orderNum !== undefined;
                 const isMarkedDel = removeSet.has(it.id);
 
                 const isMissing = !!it._missing;
@@ -1613,13 +1655,38 @@ function setupLoaderPanel(node) {
                         badge.style.display = "flex";
                         badge.style.background = isChecked ? "#22c55e" : "rgba(0,0,0,0.7)";
                         badge.style.borderColor = isChecked ? "#22c55e" : "#888";
-                        badge.innerText = isChecked ? "✔" : "";
+                        badge.innerText = isChecked ? (orderNum > 99 ? ".." : String(orderNum)) : "";
                     } else {
                         badge.style.display = "none";
                     }
                 }
             });
         }
+    };
+
+    const handleMultiItemToggle = (itemId) => {
+        const isFixed = (node.properties.order_assign_mode !== "fill");
+        let checkedList = [...(node.properties.batch_checked_ids || [])];
+        node.properties.slot_map = node.properties.slot_map || {};
+
+        const existIdx = checkedList.indexOf(itemId);
+
+        if (existIdx >= 0) {
+            checkedList.splice(existIdx, 1);
+            delete node.properties.slot_map[itemId];
+        } else {
+            checkedList.push(itemId);
+            if (isFixed) {
+                const occupiedNumbers = new Set(Object.values(node.properties.slot_map));
+                let candidate = 1;
+                while (occupiedNumbers.has(candidate)) {
+                    candidate++;
+                }
+                node.properties.slot_map[itemId] = candidate;
+            }
+        }
+
+        node.properties.batch_checked_ids = checkedList;
     };
 
     const renderGallery = () => {
@@ -1630,6 +1697,8 @@ function setupLoaderPanel(node) {
         const isRemoving = !!node.isBatchRemoveMode;
         const isList = (node.properties.gallery_view_mode === "list");
 
+        const orderMap = getEffectiveOrderMap();
+
         updateViewModeUI();
 
         if (isList) {
@@ -1637,7 +1706,8 @@ function setupLoaderPanel(node) {
                 const row = document.createElement("div");
                 row.className = "c3ds-list-row";
                 const isCur = i === curIdx;
-                const isChecked = (node.properties.batch_checked_ids || []).includes(it.id);
+                const orderNum = orderMap.get(it.id);
+                const isChecked = orderNum !== undefined;
                 const isMarkedDel = (node.properties.batch_remove_ids || []).includes(it.id);
 
                 if (isRemoving && isMarkedDel) row.classList.add("marked-del");
@@ -1648,20 +1718,22 @@ function setupLoaderPanel(node) {
 
                 const readP = it.edited_path || it.path;
                 const readN = it.edited_name || it.name;
-                row.title = `${readN}\n单击：选择/切换此图\n双击：进入大图编辑模式`;
+                row.title = `${readN}\n路径: ${readP}\n单击：选择/切换此图\n双击：进入大图编辑模式`;
 
                 const cacheKey = `${readP}/${readN}`;
                 const meta = IMAGE_META_CACHE[cacheKey];
                 const metaStr = meta ? `${meta.width}×${meta.height}` : "";
 
+                const listBadgeText = isRemoving ? (isMarkedDel ? '✕' : '○') : (isChecked ? (orderNum > 99 ? '..' : String(orderNum)) : '○');
+
                 row.innerHTML = `
-                    <div class="c3ds-check-badge-list" style="font-size:11px;font-weight:bold;color:${isRemoving ? (isMarkedDel ? '#ef4444' : '#666') : (isChecked ? '#22c55e' : '#666')};display:${(isRemoving || isMulti) ? 'flex' : 'none'};width:14px;align-items:center;justify-content:center;flex-shrink:0;">${isRemoving ? (isMarkedDel ? '✕' : '○') : (isChecked ? '✔' : '○')}</div>
+                    <div class="c3ds-check-badge-list" style="font-size:11px;font-weight:bold;color:${isRemoving ? (isMarkedDel ? '#ef4444' : '#666') : (isChecked ? '#22c55e' : '#666')};display:${(isRemoving || isMulti) ? 'flex' : 'none'};width:14px;align-items:center;justify-content:center;flex-shrink:0;">${listBadgeText}</div>
                     <img class="c3ds-list-thumb" src="/crazy3ds/get_thumb?path=${encodeURIComponent(readP)}&name=${encodeURIComponent(readN)}&t=${Date.now()}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.closest('.c3ds-card').classList.add('c3ds-item-missing');" />
                     <div style="width:20px;height:20px;background:#281818;border-radius:2px;display:none;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">⚠️</div>
                     <span class="c3ds-list-name">[${i + 1}] ${readN}</span>
                     <span class="c3ds-list-specs">${metaStr}</span>
                     ${it.name.includes('_c3ds_edit') ? `<span style="background:#48bb78;color:#000;font-size:8px;font-weight:bold;padding:0 3px;border-radius:2px;flex-shrink:0;">副本</span>` : ''}
-                    <div class="c3ds-single-del" style="color:#777;padding:0 4px;font-size:13px;display:${isRemoving ? 'none' : 'flex'};align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;" title="从画廊中移除此项">×</div>
+                    <div class="c3ds-single-del-list" style="color:#777;padding:0 4px;font-size:12px;display:${isRemoving ? 'none' : 'flex'};align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;" title="从画廊中移除此项">×</div>
                 `;
 
                 const rowImg = row.querySelector("img");
@@ -1669,20 +1741,22 @@ function setupLoaderPanel(node) {
                     rowImg.addEventListener("error", () => {
                         it._missing = true;
                         node.properties.batch_checked_ids = (node.properties.batch_checked_ids || []).filter(id => id !== it.id);
+                        if (node.properties.slot_map) delete node.properties.slot_map[it.id];
                         updateCardSelectionState();
                         syncWidgetValues();
                         updateHudText();
                     });
                 }
 
-                const singleDel = row.querySelector(".c3ds-single-del");
-                if (singleDel) {
-                    singleDel.onmouseenter = () => singleDel.style.color = "#ef4444";
-                    singleDel.onmouseleave = () => singleDel.style.color = "#777";
-                    singleDel.onclick = (e) => {
+                const singleDelList = row.querySelector(".c3ds-single-del-list");
+                if (singleDelList) {
+                    singleDelList.onmouseenter = () => singleDelList.style.color = "#ef4444";
+                    singleDelList.onmouseleave = () => singleDelList.style.color = "#777";
+                    singleDelList.onclick = (e) => {
                         e.stopPropagation();
                         node.properties.pool = pool.filter(item => item.id !== it.id);
                         node.properties.batch_checked_ids = (node.properties.batch_checked_ids || []).filter(id => id !== it.id);
+                        if (node.properties.slot_map) delete node.properties.slot_map[it.id];
                         syncWidgetValues();
                         renderGallery();
                         updateFocusImage();
@@ -1709,10 +1783,7 @@ function setupLoaderPanel(node) {
                     if (selW) selW.value = i;
 
                     if (isMultiNow) {
-                        let set = new Set(node.properties.batch_checked_ids || []);
-                        if (set.has(it.id)) set.delete(it.id);
-                        else set.add(it.id);
-                        node.properties.batch_checked_ids = Array.from(set);
+                        handleMultiItemToggle(it.id);
                     }
 
                     syncWidgetValues();
@@ -1765,7 +1836,8 @@ function setupLoaderPanel(node) {
                 const card = document.createElement("div");
                 card.className = "c3ds-card";
                 const isCur = i === curIdx;
-                const isChecked = (node.properties.batch_checked_ids || []).includes(it.id);
+                const orderNum = orderMap.get(it.id);
+                const isChecked = orderNum !== undefined;
                 const isMarkedDel = (node.properties.batch_remove_ids || []).includes(it.id);
 
                 if (isRemoving && isMarkedDel) card.classList.add("marked-del");
@@ -1776,13 +1848,15 @@ function setupLoaderPanel(node) {
 
                 const readP = it.edited_path || it.path;
                 const readN = it.edited_name || it.name;
-                card.title = `${readN}\n单击：选择/切换此图\n双击：进入大图编辑模式`;
+                card.title = `${readN}\n路径: ${readP}\n单击：选择/切换此图\n双击：进入大图编辑模式`;
+
+                const gridBadgeText = isRemoving ? (isMarkedDel ? '✕' : '') : (isChecked ? (orderNum > 99 ? '..' : String(orderNum)) : '');
 
                 card.innerHTML = `
                     <img src="/crazy3ds/get_thumb?path=${encodeURIComponent(readP)}&name=${encodeURIComponent(readN)}&t=${Date.now()}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.closest('.c3ds-card').classList.add('c3ds-item-missing');" />
                     <div class="c3ds-missing-mark" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(28,16,16,0.92);pointer-events:none;gap:3px;z-index:1;"><span style="font-size:15px;line-height:1;">⚠️</span><span style="font-size:9px;color:#fca5a5;font-weight:bold;letter-spacing:0.5px;">文件已丢失</span></div>
-                    <div class="c3ds-check-badge" style="position:absolute;top:2px;right:2px;width:15px;height:15px;border-radius:50%;background:${isRemoving ? (isMarkedDel ? '#ef4444' : 'rgba(0,0,0,0.7)') : (isChecked ? '#22c55e' : 'rgba(0,0,0,0.7)')};border:1px solid ${isRemoving ? (isMarkedDel ? '#ef4444' : '#888') : (isChecked ? '#22c55e' : '#888')};display:${(isRemoving || isMulti) ? 'flex' : 'none'};align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:bold;z-index:2;">${isRemoving ? (isMarkedDel ? '✕' : '') : (isChecked ? '✔' : '')}</div>
-                    <div class="c3ds-single-del" style="position:absolute;top:2px;left:2px;width:15px;height:15px;background:rgba(0,0,0,0.75);color:#bbb;display:${isRemoving ? 'none' : 'flex'};align-items:center;justify-content:center;font-size:12px;border-radius:2px;z-index:3;" title="从画廊中移除此图片">×</div>
+                    <div class="c3ds-check-badge" style="position:absolute;top:2px;right:2px;width:15px;height:15px;border-radius:50%;background:${isRemoving ? (isMarkedDel ? '#ef4444' : 'rgba(0,0,0,0.7)') : (isChecked ? '#22c55e' : 'rgba(0,0,0,0.7)')};border:1px solid ${isRemoving ? (isMarkedDel ? '#ef4444' : '#888') : (isChecked ? '#22c55e' : '#888')};display:${(isRemoving || isMulti) ? 'flex' : 'none'};align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:bold;z-index:2;line-height:1;">${gridBadgeText}</div>
+                    <div class="c3ds-single-del" style="display:${isRemoving ? 'none' : 'flex'};" title="从画廊中移除此图片">×</div>
                     ${it.name.includes('_c3ds_edit') ? `<div style="position:absolute;bottom:2px;left:2px;background:#48bb78;color:#000;font-size:8px;font-weight:bold;padding:0 3px;border-radius:2px;z-index:2;">副本</div>` : ''}
                 `;
 
@@ -1791,6 +1865,7 @@ function setupLoaderPanel(node) {
                     cardImg.addEventListener("error", () => {
                         it._missing = true;
                         node.properties.batch_checked_ids = (node.properties.batch_checked_ids || []).filter(id => id !== it.id);
+                        if (node.properties.slot_map) delete node.properties.slot_map[it.id];
                         updateCardSelectionState();
                         syncWidgetValues();
                         updateHudText();
@@ -1803,6 +1878,7 @@ function setupLoaderPanel(node) {
                         e.stopPropagation();
                         node.properties.pool = pool.filter(item => item.id !== it.id);
                         node.properties.batch_checked_ids = (node.properties.batch_checked_ids || []).filter(id => id !== it.id);
+                        if (node.properties.slot_map) delete node.properties.slot_map[it.id];
                         syncWidgetValues();
                         renderGallery();
                         updateFocusImage();
@@ -1829,10 +1905,7 @@ function setupLoaderPanel(node) {
                     if (selW) selW.value = i;
 
                     if (isMultiNow) {
-                        let set = new Set(node.properties.batch_checked_ids || []);
-                        if (set.has(it.id)) set.delete(it.id);
-                        else set.add(it.id);
-                        node.properties.batch_checked_ids = Array.from(set);
+                        handleMultiItemToggle(it.id);
                     }
 
                     syncWidgetValues();
@@ -1977,12 +2050,20 @@ app.registerExtension({
                 this.properties.pool = [...this.properties.c3ds_pool];
             }
             if (typeof this.properties?.c3ds_selected_idx === "number") {
-                this.properties.selected_idx = this.properties.c3ds_selected_idx;
                 const selW = this.widgets?.find(w => w.name === "selected_index");
-                if (selW) selW.value = this.properties.selected_idx;
+                if (selW) selW.value = this.properties.c3ds_selected_idx;
+            }
+            if (typeof this.properties?.c3ds_path_idx === "number") {
+                this.properties.selected_idx = this.properties.c3ds_path_idx;
             }
             if (this.properties?.c3ds_batch_checked_ids) {
                 this.properties.batch_checked_ids = [...this.properties.c3ds_batch_checked_ids];
+            }
+            if (this.properties?.order_assign_mode) {
+                this.properties.order_assign_mode = this.properties.order_assign_mode;
+            }
+            if (this.properties?.slot_map) {
+                this.properties.slot_map = Object.assign({}, this.properties.slot_map);
             }
 
             if (this.properties?.c3ds_privacy_mode !== undefined) {
