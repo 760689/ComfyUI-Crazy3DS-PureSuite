@@ -65,7 +65,7 @@ if (!document.getElementById(STYLE_ID)) {
         .c3ds-list-row.checked { border: 1.5px solid #22c55e; background: #182818; }
         .c3ds-list-row.marked-del { border: 1.5px solid #ef4444; background: #2d1818; }
         .c3ds-list-thumb { width: 20px; height: 20px; object-fit: cover; border-radius: 2px; flex-shrink: 0; background: #111; }
-        .c3ds-list-name { flex: 1; min-width: 0; font-size: 11px; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .c3ds-list-name { flex: 1; min-width: 0; font-size: 11px; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
         .c3ds-list-row.selected .c3ds-list-name { color: #fff; font-weight: 600; }
         .c3ds-list-specs { font-size: 9.5px; color: #666; white-space: nowrap; flex-shrink: 0; margin-right: 4px; }
         
@@ -221,10 +221,31 @@ function setupLoaderPanel(node) {
 
     const getWidget = (name) => node.widgets?.find(w => w.name === name);
 
+    node.properties.c3ds_preview_idx = (typeof node.properties.c3ds_preview_idx === "number") 
+        ? node.properties.c3ds_preview_idx 
+        : (getWidget("selected_index")?.value || 0);
+
+    node._preview_focus_idx = node.properties.c3ds_preview_idx;
+    node._last_active_idx = node.properties.c3ds_preview_idx;
+
     const getActiveItem = () => {
         const pool = node.properties.pool || [];
         const curIdx = Math.max(0, Math.min(getWidget("selected_index")?.value || 0, pool.length - 1));
         return pool[curIdx] || null;
+    };
+
+    const getFocusItem = () => {
+        const pool = node.properties.pool || [];
+        if (!pool.length) return null;
+        if (node.properties.is_focus_view && typeof node._preview_focus_idx === "number") {
+            const fIdx = Math.max(0, Math.min(node._preview_focus_idx, pool.length - 1));
+            return pool[fIdx] || null;
+        }
+        if (node.properties.c3ds_mode === "Multi" && typeof node._last_active_idx === "number") {
+            const aIdx = Math.max(0, Math.min(node._last_active_idx, pool.length - 1));
+            return pool[aIdx] || pool[0] || null;
+        }
+        return getActiveItem();
     };
 
     const getEffectiveOrderMap = () => {
@@ -660,6 +681,7 @@ function setupLoaderPanel(node) {
             updateModeUI();
             syncWidgetValues();
             updateCardSelectionState();
+            updateHudText();
             node.setDirtyCanvas(true, true);
         };
     });
@@ -829,6 +851,11 @@ function setupLoaderPanel(node) {
             if (currentChecked.length === 0) {
                 if (node._c3ds_before_deselect_all && node._c3ds_before_deselect_all.length > 0) {
                     node.properties.batch_checked_ids = [...node._c3ds_before_deselect_all];
+                    node.properties.slot_map = {};
+                    node.properties.batch_checked_ids.forEach((id, idx) => {
+                        node.properties.slot_map[id] = idx + 1;
+                    });
+                    node._c3ds_before_deselect_all = null;
                 }
             } else {
                 node._c3ds_before_deselect_all = [...currentChecked];
@@ -902,6 +929,9 @@ function setupLoaderPanel(node) {
         node.properties.slot_map = {};
         node.properties.batch_remove_ids = [];
         node.isBatchRemoveMode = false;
+        node._last_active_idx = 0;
+        node._preview_focus_idx = 0;
+        node.properties.c3ds_preview_idx = 0;
         const selW = getWidget("selected_index");
         if (selW) selW.value = 0;
         syncWidgetValues();
@@ -948,6 +978,9 @@ function setupLoaderPanel(node) {
         node.properties.batch_remove_ids = [];
         node.isBatchRemoveMode = false;
         batchRemoveBar.style.display = "none";
+        node._last_active_idx = 0;
+        node._preview_focus_idx = 0;
+        node.properties.c3ds_preview_idx = 0;
         syncWidgetValues();
         renderGallery();
         updateFocusImage();
@@ -983,7 +1016,7 @@ function setupLoaderPanel(node) {
     const btnFloatCancel = floatBtnGroup.querySelector("#btnFloatCancel");
 
     const innerStage = document.createElement("div");
-    innerStage.style.cssText = "position:relative;display:flex;align-items:center;justify-content:box-sizing:border-box;user-select:none;";
+    innerStage.style.cssText = "position:relative;display:flex;align-items:center;justify-content:center;box-sizing:border-box;user-select:none;flex-shrink:0;";
 
     const stageCanvas = document.createElement("canvas");
     stageCanvas.style.cssText = "display:block;width:100%;height:100%;user-select:none;cursor:pointer;";
@@ -1060,7 +1093,7 @@ function setupLoaderPanel(node) {
     btnFlipEl.onmouseleave = () => { btnFlipEl.style.color = "#888"; };
 
     btnBackEl.onclick = () => {
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (it) {
             it.rot = 0; it.flip_h = false; it.flip_v = false; it.crop = null; it.crop_ratio = "原图";
         }
@@ -1092,7 +1125,7 @@ function setupLoaderPanel(node) {
     const btnFlipH = barTools.querySelector("#btnFlipH");
 
     btnRot.onclick = () => {
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it) return;
         it.rot = ((it.rot || 0) + 90) % 360;
         renderCanvasStage();
@@ -1100,7 +1133,7 @@ function setupLoaderPanel(node) {
     };
 
     btnFlipH.onclick = () => {
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it) return;
         it.flip_h = !it.flip_h;
         renderCanvasStage();
@@ -1108,7 +1141,7 @@ function setupLoaderPanel(node) {
     };
 
     btnFloatSave.onclick = async () => {
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it) return;
 
         btnFloatSave.innerText = "保存中...";
@@ -1144,12 +1177,22 @@ function setupLoaderPanel(node) {
                 const curIdx = pool.findIndex(p => p.id === it.id);
                 if (curIdx >= 0) {
                     pool.splice(curIdx + 1, 0, newCopyItem);
-                    const selW = getWidget("selected_index");
-                    if (selW) selW.value = curIdx + 1;
+                    node._preview_focus_idx = curIdx + 1;
+                    node._last_active_idx = curIdx + 1;
+                    node.properties.c3ds_preview_idx = curIdx + 1;
+                    if (node.properties.c3ds_mode !== "Multi") {
+                        const selW = getWidget("selected_index");
+                        if (selW) selW.value = curIdx + 1;
+                    }
                 } else {
                     pool.push(newCopyItem);
-                    const selW = getWidget("selected_index");
-                    if (selW) selW.value = pool.length - 1;
+                    node._preview_focus_idx = pool.length - 1;
+                    node._last_active_idx = pool.length - 1;
+                    node.properties.c3ds_preview_idx = pool.length - 1;
+                    if (node.properties.c3ds_mode !== "Multi") {
+                        const selW = getWidget("selected_index");
+                        if (selW) selW.value = pool.length - 1;
+                    }
                 }
 
                 tempCropBox = null;
@@ -1171,7 +1214,7 @@ function setupLoaderPanel(node) {
     };
 
     btnFloatReset.onclick = () => {
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it) return;
         it.rot = 0; it.flip_h = false; it.flip_v = false; it.crop = null; it.crop_ratio = "原图";
         tempCropBox = null;
@@ -1184,7 +1227,7 @@ function setupLoaderPanel(node) {
     };
 
     btnFloatCancel.onclick = () => {
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it) return;
         it.rot = 0; it.flip_h = false; it.flip_v = false; it.crop = null; it.crop_ratio = "原图";
         tempCropBox = null;
@@ -1258,20 +1301,32 @@ function setupLoaderPanel(node) {
             return;
         }
 
-        const it = getActiveItem();
+        const it = getFocusItem();
         const fname = it ? (it.edited_name || it.name) : "";
-        const curIdx = (getWidget("selected_index")?.value || 0) + 1;
         const isMulti = (node.properties.c3ds_mode === "Multi");
+
+        let curNum = 1;
+        if (node.properties.is_focus_view && typeof node._preview_focus_idx === "number") {
+            curNum = node._preview_focus_idx + 1;
+        } else if (isMulti && typeof node._last_active_idx === "number") {
+            curNum = node._last_active_idx + 1;
+        } else {
+            curNum = (getWidget("selected_index")?.value || 0) + 1;
+        }
 
         hudTitle.innerText = fname;
         hudTitle.title = fname;
 
         if (isMulti) {
-            const count = (node.properties.batch_checked_ids || []).length;
-            const flowTag = (node.properties.c3ds_flow === "Batch") ? "批次" : "列表";
-            hudCount.innerText = `[${flowTag} ${count}/${total}P]`;
+            if (node.properties.is_focus_view) {
+                hudCount.innerText = `[查看 ${curNum}/${total}P]`;
+            } else {
+                const count = (node.properties.batch_checked_ids || []).length;
+                const flowTag = (node.properties.c3ds_flow === "Batch") ? "批次" : "列表";
+                hudCount.innerText = `[${flowTag} ${count}/${total}P]`;
+            }
         } else {
-            hudCount.innerText = `[${curIdx}/${total}P]`;
+            hudCount.innerText = `[${curNum}/${total}P]`;
         }
 
         if (!it) return;
@@ -1285,6 +1340,7 @@ function setupLoaderPanel(node) {
         const targetN = it.edited_name || it.name;
         const cacheKey = `${targetP}/${targetN}`;
 
+        // 优先快速显示旧缓存规格，但绝不终止向后端的真实探活
         if (IMAGE_META_CACHE[cacheKey]) {
             const m = IMAGE_META_CACHE[cacheKey];
             if (m.failed) {
@@ -1294,32 +1350,34 @@ function setupLoaderPanel(node) {
             }
         } else {
             hudSpecs.innerText = `· 读取中...`;
-            api.fetchApi(`/crazy3ds/get_image_info?path=${encodeURIComponent(targetP)}&name=${encodeURIComponent(targetN)}`)
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success) {
-                        IMAGE_META_CACHE[cacheKey] = d;
-                        const cur = getActiveItem();
-                        if (cur && (cur.edited_name || cur.name) === targetN) {
-                            hudSpecs.innerText = `· ${d.width}×${d.height} · ${d.size} · ${d.format}`;
-                        }
-                    } else {
-                        IMAGE_META_CACHE[cacheKey] = { failed: true };
-                        it._missing = true;
-                        updateCardSelectionState();
-                        const cur = getActiveItem();
-                        if (cur && (cur.edited_name || cur.name) === targetN) {
-                            hudSpecs.innerText = "文件已丢失";
-                        }
+        }
+
+        // 精准恢复自动感知：每次聚焦或检测均向后端轻量探活，文件被删立刻捕获 404
+        api.fetchApi(`/crazy3ds/get_image_info?path=${encodeURIComponent(targetP)}&name=${encodeURIComponent(targetN)}&t=${Date.now()}`)
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    IMAGE_META_CACHE[cacheKey] = d;
+                    const cur = getFocusItem();
+                    if (cur && (cur.edited_name || cur.name) === targetN) {
+                        hudSpecs.innerText = `· ${d.width}×${d.height} · ${d.size} · ${d.format}`;
                     }
-                })
-                .catch(() => {
+                } else {
                     IMAGE_META_CACHE[cacheKey] = { failed: true };
                     it._missing = true;
                     updateCardSelectionState();
-                    hudSpecs.innerText = "文件已丢失";
-                });
-        }
+                    const cur = getFocusItem();
+                    if (cur && (cur.edited_name || cur.name) === targetN) {
+                        hudSpecs.innerText = "文件已丢失";
+                    }
+                }
+            })
+            .catch(() => {
+                IMAGE_META_CACHE[cacheKey] = { failed: true };
+                it._missing = true;
+                updateCardSelectionState();
+                hudSpecs.innerText = "文件已丢失";
+            });
     };
 
     root.appendChild(barTarget);
@@ -1334,7 +1392,7 @@ function setupLoaderPanel(node) {
 
     const fitStageToContainer = () => {
         if (!originalRawImage) return;
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it) return;
 
         const rot = it.rot || 0;
@@ -1346,17 +1404,9 @@ function setupLoaderPanel(node) {
         const availH = focusImgWrap.clientHeight;
         if (availW <= 4 || availH <= 4) return;
 
-        const imgAspect = srcW / srcH;
-        const availAspect = availW / availH;
-
-        let displayW, displayH;
-        if (availAspect > imgAspect) {
-            displayH = availH;
-            displayW = Math.round(availH * imgAspect);
-        } else {
-            displayW = availW;
-            displayH = Math.round(availW / imgAspect);
-        }
+        const scale = Math.min(availW / srcW, availH / srcH);
+        const displayW = Math.max(1, Math.round(srcW * scale));
+        const displayH = Math.max(1, Math.round(srcH * scale));
 
         innerStage.style.width = displayW + "px";
         innerStage.style.height = displayH + "px";
@@ -1372,7 +1422,7 @@ function setupLoaderPanel(node) {
     resizeObserver.observe(focusImgWrap);
 
     const updateFocusImage = () => {
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it) {
             stageCanvas.width = 10; stageCanvas.height = 10;
             return;
@@ -1391,7 +1441,7 @@ function setupLoaderPanel(node) {
 
     const renderCanvasStage = () => {
         if (!originalRawImage) return;
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it) return;
 
         const rot = it.rot || 0;
@@ -1428,7 +1478,7 @@ function setupLoaderPanel(node) {
     let selectedRatioStr = "原图";
 
     const selectCropRatio = (r) => {
-        const it = getActiveItem();
+        const it = getFocusItem();
         if (!it || !originalRawImage) return;
 
         selectedRatioStr = r;
@@ -1517,7 +1567,7 @@ function setupLoaderPanel(node) {
                     if (cy + (ch - nh) >= 0) { cy += (ch - nh); ch = nh; }
                 }
             } else {
-                const rot = (getActiveItem()?.rot || 0);
+                const rot = (getFocusItem()?.rot || 0);
                 const isRot90 = (rot === 90 || rot === 270);
                 const imgW = isRot90 ? originalRawImage.height : originalRawImage.width;
                 const imgH = isRot90 ? originalRawImage.width : originalRawImage.height;
@@ -1554,7 +1604,7 @@ function setupLoaderPanel(node) {
             }
 
             tempCropBox = [cx, cy, cw, ch];
-            const it = getActiveItem();
+            const it = getFocusItem();
             if (it) it.crop = [...tempCropBox];
             positionCropOverlay();
         };
@@ -1581,6 +1631,7 @@ function setupLoaderPanel(node) {
             updateCardSelectionState();
         }
         syncWidgetValues();
+        updateHudText();
         node.setDirtyCanvas(true, true);
     };
     node.c3dsSwitchViewMode = switchViewMode;
@@ -1610,6 +1661,11 @@ function setupLoaderPanel(node) {
                 row.classList.toggle("marked-del", isRemoving && isMarkedDel);
                 row.classList.toggle("c3ds-missing-disabled", isMissing && !isRemoving);
                 row.style.opacity = (isMissing && !isRemoving) ? "0.65" : ((isMulti && !isChecked && !isRemoving) ? "0.6" : "1");
+
+                const missingEl = row.querySelector(".c3ds-list-missing-tag");
+                if (missingEl) {
+                    missingEl.style.display = isMissing ? "inline-block" : "none";
+                }
 
                 const badge = row.querySelector(".c3ds-check-badge-list");
                 if (badge) {
@@ -1643,6 +1699,11 @@ function setupLoaderPanel(node) {
                 card.classList.toggle("marked-del", isRemoving && isMarkedDel);
                 card.classList.toggle("c3ds-missing-disabled", isMissing && !isRemoving);
                 card.style.opacity = (isMissing && !isRemoving) ? "0.65" : ((isMulti && !isChecked && !isRemoving) ? "0.55" : "1");
+
+                const missingMark = card.querySelector(".c3ds-missing-mark");
+                if (missingMark) {
+                    missingMark.style.display = isMissing ? "flex" : "none";
+                }
 
                 const badge = card.querySelector(".c3ds-check-badge");
                 if (badge) {
@@ -1728,8 +1789,8 @@ function setupLoaderPanel(node) {
 
                 row.innerHTML = `
                     <div class="c3ds-check-badge-list" style="font-size:11px;font-weight:bold;color:${isRemoving ? (isMarkedDel ? '#ef4444' : '#666') : (isChecked ? '#22c55e' : '#666')};display:${(isRemoving || isMulti) ? 'flex' : 'none'};width:14px;align-items:center;justify-content:center;flex-shrink:0;">${listBadgeText}</div>
-                    <img class="c3ds-list-thumb" src="/crazy3ds/get_thumb?path=${encodeURIComponent(readP)}&name=${encodeURIComponent(readN)}&t=${Date.now()}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.closest('.c3ds-card').classList.add('c3ds-item-missing');" />
-                    <div style="width:20px;height:20px;background:#281818;border-radius:2px;display:none;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">⚠️</div>
+                    <img class="c3ds-list-thumb" src="/crazy3ds/get_thumb?path=${encodeURIComponent(readP)}&name=${encodeURIComponent(readN)}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';" />
+                    <span class="c3ds-list-missing-tag" style="display:${it._missing ? 'inline-block' : 'none'};background:#7b2c2c;color:#fca5a5;font-size:8.5px;padding:0 3px;border-radius:2px;flex-shrink:0;">丢失</span>
                     <span class="c3ds-list-name">[${i + 1}] ${readN}</span>
                     <span class="c3ds-list-specs">${metaStr}</span>
                     ${it.name.includes('_c3ds_edit') ? `<span style="background:#48bb78;color:#000;font-size:8px;font-weight:bold;padding:0 3px;border-radius:2px;flex-shrink:0;">副本</span>` : ''}
@@ -1757,6 +1818,7 @@ function setupLoaderPanel(node) {
                         node.properties.pool = pool.filter(item => item.id !== it.id);
                         node.properties.batch_checked_ids = (node.properties.batch_checked_ids || []).filter(id => id !== it.id);
                         if (node.properties.slot_map) delete node.properties.slot_map[it.id];
+                        node._last_active_idx = 0;
                         syncWidgetValues();
                         renderGallery();
                         updateFocusImage();
@@ -1779,10 +1841,12 @@ function setupLoaderPanel(node) {
                     }
 
                     const isMultiNow = (node.properties.c3ds_mode === "Multi");
-                    const selW = getWidget("selected_index");
-                    if (selW) selW.value = i;
+                    node._last_active_idx = i;
 
-                    if (isMultiNow) {
+                    if (!isMultiNow) {
+                        const selW = getWidget("selected_index");
+                        if (selW) selW.value = i;
+                    } else {
                         handleMultiItemToggle(it.id);
                     }
 
@@ -1796,9 +1860,14 @@ function setupLoaderPanel(node) {
                 row.ondblclick = (e) => {
                     e.stopPropagation();
                     if (it._missing || node.isBatchRemoveMode) return;
-                    const selW = getWidget("selected_index");
-                    if (selW) selW.value = i;
-                    syncWidgetValues();
+                    node._preview_focus_idx = i;
+                    node._last_active_idx = i;
+                    node.properties.c3ds_preview_idx = i;
+                    if (node.properties.c3ds_mode !== "Multi") {
+                        const selW = getWidget("selected_index");
+                        if (selW) selW.value = i;
+                        syncWidgetValues();
+                    }
                     switchViewMode(true);
                 };
 
@@ -1853,8 +1922,8 @@ function setupLoaderPanel(node) {
                 const gridBadgeText = isRemoving ? (isMarkedDel ? '✕' : '') : (isChecked ? (orderNum > 99 ? '..' : String(orderNum)) : '');
 
                 card.innerHTML = `
-                    <img src="/crazy3ds/get_thumb?path=${encodeURIComponent(readP)}&name=${encodeURIComponent(readN)}&t=${Date.now()}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.closest('.c3ds-card').classList.add('c3ds-item-missing');" />
-                    <div class="c3ds-missing-mark" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(28,16,16,0.92);pointer-events:none;gap:3px;z-index:1;"><span style="font-size:15px;line-height:1;">⚠️</span><span style="font-size:9px;color:#fca5a5;font-weight:bold;letter-spacing:0.5px;">文件已丢失</span></div>
+                    <img src="/crazy3ds/get_thumb?path=${encodeURIComponent(readP)}&name=${encodeURIComponent(readN)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.closest('.c3ds-card').classList.add('c3ds-item-missing');" />
+                    <div class="c3ds-missing-mark" style="position:absolute;inset:0;display:${it._missing ? 'flex' : 'none'};flex-direction:column;align-items:center;justify-content:center;background:rgba(28,16,16,0.92);pointer-events:none;gap:3px;z-index:1;"><span style="font-size:15px;line-height:1;">⚠️</span><span style="font-size:9px;color:#fca5a5;font-weight:bold;letter-spacing:0.5px;">文件已丢失</span></div>
                     <div class="c3ds-check-badge" style="position:absolute;top:2px;right:2px;width:15px;height:15px;border-radius:50%;background:${isRemoving ? (isMarkedDel ? '#ef4444' : 'rgba(0,0,0,0.7)') : (isChecked ? '#22c55e' : 'rgba(0,0,0,0.7)')};border:1px solid ${isRemoving ? (isMarkedDel ? '#ef4444' : '#888') : (isChecked ? '#22c55e' : '#888')};display:${(isRemoving || isMulti) ? 'flex' : 'none'};align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:bold;z-index:2;line-height:1;">${gridBadgeText}</div>
                     <div class="c3ds-single-del" style="display:${isRemoving ? 'none' : 'flex'};" title="从画廊中移除此图片">×</div>
                     ${it.name.includes('_c3ds_edit') ? `<div style="position:absolute;bottom:2px;left:2px;background:#48bb78;color:#000;font-size:8px;font-weight:bold;padding:0 3px;border-radius:2px;z-index:2;">副本</div>` : ''}
@@ -1879,6 +1948,7 @@ function setupLoaderPanel(node) {
                         node.properties.pool = pool.filter(item => item.id !== it.id);
                         node.properties.batch_checked_ids = (node.properties.batch_checked_ids || []).filter(id => id !== it.id);
                         if (node.properties.slot_map) delete node.properties.slot_map[it.id];
+                        node._last_active_idx = 0;
                         syncWidgetValues();
                         renderGallery();
                         updateFocusImage();
@@ -1901,10 +1971,12 @@ function setupLoaderPanel(node) {
                     }
 
                     const isMultiNow = (node.properties.c3ds_mode === "Multi");
-                    const selW = getWidget("selected_index");
-                    if (selW) selW.value = i;
+                    node._last_active_idx = i;
 
-                    if (isMultiNow) {
+                    if (!isMultiNow) {
+                        const selW = getWidget("selected_index");
+                        if (selW) selW.value = i;
+                    } else {
                         handleMultiItemToggle(it.id);
                     }
 
@@ -1918,9 +1990,14 @@ function setupLoaderPanel(node) {
                 card.ondblclick = (e) => {
                     e.stopPropagation();
                     if (it._missing || node.isBatchRemoveMode) return;
-                    const selW = getWidget("selected_index");
-                    if (selW) selW.value = i;
-                    syncWidgetValues();
+                    node._preview_focus_idx = i;
+                    node._last_active_idx = i;
+                    node.properties.c3ds_preview_idx = i;
+                    if (node.properties.c3ds_mode !== "Multi") {
+                        const selW = getWidget("selected_index");
+                        if (selW) selW.value = i;
+                        syncWidgetValues();
+                    }
                     switchViewMode(true);
                 };
 
@@ -1958,16 +2035,33 @@ function setupLoaderPanel(node) {
     const stepImage = (delta) => {
         const pool = node.properties.pool || [];
         if (!pool.length) return;
-        const curIdx = getWidget("selected_index")?.value || 0;
-        let nextIdx = (curIdx + delta) % pool.length;
-        if (nextIdx < 0) nextIdx = pool.length - 1;
 
-        const selW = getWidget("selected_index");
-        if (selW) selW.value = nextIdx;
+        if (node.properties.is_focus_view) {
+            let base = (typeof node._preview_focus_idx === "number") ? node._preview_focus_idx : (getWidget("selected_index")?.value || 0);
+            let nextIdx = (base + delta) % pool.length;
+            if (nextIdx < 0) nextIdx = pool.length - 1;
+            node._preview_focus_idx = nextIdx;
+            node._last_active_idx = nextIdx;
+            node.properties.c3ds_preview_idx = nextIdx;
 
-        syncWidgetValues();
+            if (node.properties.c3ds_mode !== "Multi") {
+                const selW = getWidget("selected_index");
+                if (selW) selW.value = nextIdx;
+                syncWidgetValues();
+            }
+        } else {
+            const curIdx = getWidget("selected_index")?.value || 0;
+            let nextIdx = (curIdx + delta) % pool.length;
+            if (nextIdx < 0) nextIdx = pool.length - 1;
+            node._last_active_idx = nextIdx;
+
+            const selW = getWidget("selected_index");
+            if (selW) selW.value = nextIdx;
+            syncWidgetValues();
+            updateCardSelectionState();
+        }
+
         updateFocusImage();
-        if (!node.properties.is_focus_view) updateCardSelectionState();
         updateHudText();
         node.setDirtyCanvas(true, true);
     };
@@ -2076,6 +2170,11 @@ app.registerExtension({
 
             if (this.properties?.gallery_view_mode) {
                 this.properties.gallery_view_mode = this.properties.gallery_view_mode;
+            }
+
+            if (typeof this.properties?.c3ds_preview_idx === "number") {
+                this._preview_focus_idx = this.properties.c3ds_preview_idx;
+                this._last_active_idx = this.properties.c3ds_preview_idx;
             }
 
             const savedSize = this.properties?.c3ds_custom_size || info?.size;
